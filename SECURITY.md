@@ -10,7 +10,6 @@ This extension orchestrates OAuth credential rotation for Salesforce External Cl
 - Salesforce refresh tokens and `sfdxAuthUrl` values.
 - ECA client IDs.
 - ECA client secrets (current and staged).
-- OAuth access tokens issued during optional validation.
 
 ## Controls
 
@@ -38,7 +37,7 @@ Before every mutation the extension re-runs `sf org display`, checks the usernam
 
 - The output channel receives redacted messages only. Response bodies are never logged.
 - `redact()` covers key/value secrets, `Authorization: Bearer ...` headers, bare bearer tokens, Salesforce access-token shapes, SFDX auth URLs, and long opaque secrets.
-- Audit records are built from a whitelist: audit ID, timestamp, action, outcome, org metadata, ECA metadata, administrator username, API version, staged credential metadata, HTTP status, verification booleans, validation result, error code/message, and notes.
+- Audit records are built from a whitelist: audit ID, timestamp, action, outcome, org metadata, ECA metadata, administrator username, API version, staged credential metadata, HTTP status, verification booleans, error code/message, and notes.
 - Client IDs, client secrets, access tokens, refresh tokens, and response bodies are never written to the audit file.
 - The audit directory is created with mode `0700` where supported; the file is chmod `0600` where supported.
 
@@ -48,7 +47,6 @@ Before every mutation the extension re-runs `sf org display`, checks the usernam
 - All dynamic values are delivered through `postMessage` and rendered with `textContent`/DOM APIs, not HTML interpolation.
 - The secret is masked until **Reveal secret** is chosen and re-masks after 60 seconds.
 - Copying a credential always warns that other applications may read the clipboard. The first credential copy in a session requires modal confirmation.
-- Optional OAuth validation discards the issued access token immediately; the token is never returned to the UI or written anywhere.
 - Rotation requires a 5-item integration checklist, a typed ECA API name, and a second native confirmation.
 
 ### HTTP behavior
@@ -72,8 +70,7 @@ Before every mutation the extension re-runs `sf org display`, checks the usernam
 2. Stage credentials and confirm the current integration still works.
 3. Update named credentials, external credentials, secrets managers, CI/CD variables, middleware, and ETL jobs with the new client ID and secret.
 4. Complete the checklist and rotate during a controlled window.
-5. Optionally validate the new credentials with the Client Credentials flow using the dedicated command after rotation.
-6. Retire the old secret only after all integrations are confirmed.
+5. Retire the old secret only after all integrations are confirmed.
 
 ## Reporting a vulnerability
 

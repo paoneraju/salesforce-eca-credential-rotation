@@ -16,7 +16,6 @@ The extension reuses your existing Salesforce CLI authentication, discovers orgs
 - **Secret retrieval on demand.** The staged client secret is masked until **Reveal secret** is used, re-masks automatically after 60 seconds, and is held in memory only with a configurable TTL.
 - **Clipboard safety.** Copying a credential always carries a warning; the first copy in a session requires modal confirmation.
 - **Secret-free audit history.** JSONL records are appended to a local audit file with a whitelist of non-sensitive fields.
-- **Optional integration validation.** Runs an OAuth Client Credentials grant only when explicitly requested and only for apps configured for that flow. The issued access token is discarded, never displayed, and never logged.
 
 ## Requirements
 
@@ -67,7 +66,6 @@ For an Extension Development Host, open the folder in VS Code and press **F5** (
    - Complete the integration update checklist.
    - Type the External Client App API name and confirm the native warning.
    - Rotate. The extension verifies the staged state and compares the active consumer key with the new client ID.
-   - After rotation, optionally run `Salesforce ECA: Validate New Credentials (Client Credentials Flow)...` from the Command Palette.
    - If the old credentials are no longer needed, delete the rotated staged credential from the result screen or with `Salesforce ECA: Delete Staged Credential...`. Deleting the record does not change the active client ID/secret.
 6. Review **Rotation History**. Audit records are secret-free and can be opened directly at the relevant line.
 
@@ -88,7 +86,6 @@ A successful HTTP response is **not** an authentication test. The extension repo
 | `Salesforce ECA: Copy Staged Client ID` | Copy the held client ID with a clipboard warning. |
 | `Salesforce ECA: Copy Staged Client Secret` | Copy the held client secret with a clipboard warning. |
 | `Salesforce ECA: Clear Credentials From Memory` | Drop held credentials immediately. |
-| `Salesforce ECA: Validate New Credentials (Client Credentials Flow)...` | Optional OAuth validation; token is discarded. |
 | `Salesforce ECA: Delete Staged Credential...` | Delete an additional staged credential without changing active credentials. |
 | `Salesforce ECA: Show External Client App Details` | Show masked app/consumer details. |
 | `Salesforce ECA: Open External Client Apps Setup` | Open the org's ECA Setup page. |
@@ -116,7 +113,6 @@ A successful HTTP response is **not** an authentication test. The extension repo
 - **No silent org switching.** If the selected org disappears or an alias resolves to another org, the operation stops with an error.
 - **Allowlisted parsing.** `sf org list` output includes `accessToken` on current CLI versions; it is deliberately ignored. `sf org display --verbose` includes `sfdxAuthUrl`; it is never read. Recent CLI versions redact the access token in `org display`; the extension detects the marker and asks `sf org auth show-access-token --json` for the token without logging it.
 - **Allowlisted audit fields.** Audit records contain IDs, names, timestamps, states, HTTP status codes, and outcomes—not client IDs or secrets.
-- **No token echo.** Integration validation discards the OAuth access token immediately.
 - **Clipboard warning.** Every credential copy warns that other applications may read the clipboard.
 - **Panels clear memory.** Closing the wizard clears held credentials.
 
@@ -181,12 +177,12 @@ npm run check       # lint + test
 npm run package     # vsce package --no-dependencies
 ```
 
-The core services are independent of the VS Code API so they can be unit-tested with fake CLI runners and fake HTTPS transports. Tests cover CLI parsing, org identity checks, API version selection, discovery, staging, retrieval, rotation verification, audit secrecy, redaction, credential TTL, OAuth validation, and wizard CSP.
+The core services are independent of the VS Code API so they can be unit-tested with fake CLI runners and fake HTTPS transports. Tests cover CLI parsing, org identity checks, API version selection, discovery, staging, retrieval, rotation verification, audit secrecy, redaction, credential TTL, and wizard CSP.
 
 ### Project layout
 
 ```
-src/core/        Salesforce CLI, REST client, ECA API, rotation, audit, validation
+src/core/        Salesforce CLI, REST client, ECA API, rotation, audit
 src/ui/          VS Code integration: tree views, wizard, clipboard, controller
 media/           Wizard CSS/JS and Activity Bar icon
 src/test/        Mocha unit tests
@@ -197,7 +193,6 @@ docs/            API contract notes
 
 - Only External Client App OAuth consumer credentials are managed. Connected Apps are not.
 - Packaged ECAs are discovered but cannot be rotated.
-- Integration validation is limited to the OAuth Client Credentials flow with a Run-As user. It is not a general test of every integration that uses the credentials.
 - Rotation cannot be undone from VS Code. Salesforce may retain a rotated staged credential for a period; the extension can delete staged credentials but does not restore previous client secrets.
 - Live rotation was not executed against the development orgs used while building this extension because their CLI sessions were expired. The API contract and behavior are covered by unit tests with simulated Salesforce responses; validate in a sandbox first.
 
