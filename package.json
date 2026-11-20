@@ -5,6 +5,14 @@
   "version": "1.0.0",
   "publisher": "pavan",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/paoneraju/salesforce-eca-credential-rotation.git"
+  },
+  "bugs": {
+    "url": "https://github.com/paoneraju/salesforce-eca-credential-rotation/issues"
+  },
+  "homepage": "https://github.com/paoneraju/salesforce-eca-credential-rotation#readme",
   "engines": {
     "vscode": "^1.95.0",
     "node": ">=20"
