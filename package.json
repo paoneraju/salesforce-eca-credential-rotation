@@ -1,0 +1,351 @@
+{
+  "name": "salesforce-eca-credential-rotation",
+  "displayName": "Salesforce ECA Credential Rotation Manager",
+  "description": "Discover Salesforce External Client Apps, stage and retrieve OAuth credentials, and perform administrator-approved credential rotation using your existing Salesforce CLI authentication.",
+  "version": "1.0.0",
+  "publisher": "pavan",
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.95.0",
+    "node": ">=20"
+  },
+  "categories": [
+    "Other"
+  ],
+  "keywords": [
+    "salesforce",
+    "external client app",
+    "oauth",
+    "credential rotation",
+    "security"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "salesforceEca",
+          "title": "Salesforce ECA Manager",
+          "icon": "media/eca.svg"
+        }
+      ]
+    },
+    "views": {
+      "salesforceEca": [
+        {
+          "id": "salesforceEca.orgs",
+          "name": "Salesforce Orgs"
+        },
+        {
+          "id": "salesforceEca.ecas",
+          "name": "External Client Apps"
+        },
+        {
+          "id": "salesforceEca.audit",
+          "name": "Rotation History"
+        }
+      ]
+    },
+    "viewsWelcome": [
+      {
+        "view": "salesforceEca.orgs",
+        "contents": "No Salesforce orgs are loaded. The extension reuses your Salesforce CLI authentication and never asks for or stores a separate password.\n[Refresh Orgs](command:salesforceEca.refreshOrgs)\n[Copy Login Command](command:salesforceEca.copyLoginCommand)"
+      },
+      {
+        "view": "salesforceEca.ecas",
+        "when": "!salesforceEca.hasSelectedOrg",
+        "contents": "Select a Salesforce org to discover its External Client Apps.\n[Select Salesforce Org](command:salesforceEca.selectOrg)"
+      },
+      {
+        "view": "salesforceEca.ecas",
+        "when": "salesforceEca.hasSelectedOrg",
+        "contents": "No External Client Apps were discovered for this org. Confirm that the org supports API v65.0 or later and that you have External Client App permissions.\n[Refresh External Client Apps](command:salesforceEca.refreshEcas)"
+      },
+      {
+        "view": "salesforceEca.audit",
+        "contents": "No rotation audit records yet. Successful and failed operations are appended automatically without client IDs, secrets, or access tokens.\n[Refresh Rotation History](command:salesforceEca.refreshAudit)"
+      }
+    ],
+    "commands": [
+      {
+        "command": "salesforceEca.selectOrg",
+        "title": "Select Salesforce Org",
+        "category": "Salesforce ECA",
+        "icon": "$(account)"
+      },
+      {
+        "command": "salesforceEca.refreshOrgs",
+        "title": "Refresh Salesforce Orgs",
+        "category": "Salesforce ECA",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "salesforceEca.refreshEcas",
+        "title": "Refresh External Client Apps",
+        "category": "Salesforce ECA",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "salesforceEca.rotateCredentials",
+        "title": "Rotate Credentials...",
+        "category": "Salesforce ECA",
+        "icon": "$(key)"
+      },
+      {
+        "command": "salesforceEca.stageCredentials",
+        "title": "Stage New Credentials...",
+        "category": "Salesforce ECA",
+        "icon": "$(add)"
+      },
+      {
+        "command": "salesforceEca.retrieveCredentials",
+        "title": "Retrieve Staged Credentials...",
+        "category": "Salesforce ECA",
+        "icon": "$(eye)"
+      },
+      {
+        "command": "salesforceEca.copyClientId",
+        "title": "Copy Staged Client ID",
+        "category": "Salesforce ECA",
+        "icon": "$(copy)"
+      },
+      {
+        "command": "salesforceEca.copyClientSecret",
+        "title": "Copy Staged Client Secret",
+        "category": "Salesforce ECA",
+        "icon": "$(copy)"
+      },
+      {
+        "command": "salesforceEca.clearCredentials",
+        "title": "Clear Credentials From Memory",
+        "category": "Salesforce ECA",
+        "icon": "$(clear-all)"
+      },
+      {
+        "command": "salesforceEca.validateCredentials",
+        "title": "Validate New Credentials (Client Credentials Flow)...",
+        "category": "Salesforce ECA",
+        "icon": "$(beaker)"
+      },
+      {
+        "command": "salesforceEca.deleteStagedCredential",
+        "title": "Delete Staged Credential...",
+        "category": "Salesforce ECA",
+        "icon": "$(trash)"
+      },
+      {
+        "command": "salesforceEca.showEcaDetails",
+        "title": "Show External Client App Details",
+        "category": "Salesforce ECA",
+        "icon": "$(info)"
+      },
+      {
+        "command": "salesforceEca.openSetup",
+        "title": "Open External Client Apps Setup",
+        "category": "Salesforce ECA",
+        "icon": "$(link-external)"
+      },
+      {
+        "command": "salesforceEca.openAudit",
+        "title": "Open Rotation Audit File",
+        "category": "Salesforce ECA",
+        "icon": "$(file-text)"
+      },
+      {
+        "command": "salesforceEca.openAuditRecord",
+        "title": "Open Rotation Audit Record",
+        "category": "Salesforce ECA",
+        "icon": "$(go-to-file)"
+      },
+      {
+        "command": "salesforceEca.refreshAudit",
+        "title": "Refresh Rotation History",
+        "category": "Salesforce ECA",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "salesforceEca.openSettings",
+        "title": "Open Salesforce ECA Manager Settings",
+        "category": "Salesforce ECA",
+        "icon": "$(gear)"
+      },
+      {
+        "command": "salesforceEca.copyLoginCommand",
+        "title": "Copy Salesforce CLI Login Command",
+        "category": "Salesforce ECA",
+        "icon": "$(terminal)"
+      }
+    ],
+    "menus": {
+      "view/title": [
+        {
+          "command": "salesforceEca.selectOrg",
+          "when": "view == salesforceEca.orgs",
+          "group": "navigation@1"
+        },
+        {
+          "command": "salesforceEca.refreshOrgs",
+          "when": "view == salesforceEca.orgs",
+          "group": "navigation@2"
+        },
+        {
+          "command": "salesforceEca.rotateCredentials",
+          "when": "view == salesforceEca.ecas && salesforceEca.hasSelectedOrg",
+          "group": "navigation@1"
+        },
+        {
+          "command": "salesforceEca.refreshEcas",
+          "when": "view == salesforceEca.ecas && salesforceEca.hasSelectedOrg",
+          "group": "navigation@2"
+        },
+        {
+          "command": "salesforceEca.openSettings",
+          "when": "view == salesforceEca.ecas",
+          "group": "navigation@3"
+        },
+        {
+          "command": "salesforceEca.openAudit",
+          "when": "view == salesforceEca.audit",
+          "group": "navigation@1"
+        },
+        {
+          "command": "salesforceEca.refreshAudit",
+          "when": "view == salesforceEca.audit",
+          "group": "navigation@2"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "salesforceEca.selectOrg",
+          "when": "view == salesforceEca.orgs && viewItem == org.available",
+          "group": "inline@1"
+        },
+        {
+          "command": "salesforceEca.copyLoginCommand",
+          "when": "view == salesforceEca.orgs && viewItem =~ /^org\\./",
+          "group": "1_org@1"
+        },
+        {
+          "command": "salesforceEca.rotateCredentials",
+          "when": "view == salesforceEca.ecas && viewItem == eca.supported",
+          "group": "inline@1"
+        },
+        {
+          "command": "salesforceEca.stageCredentials",
+          "when": "view == salesforceEca.ecas && viewItem == eca.supported",
+          "group": "1_credentials@1"
+        },
+        {
+          "command": "salesforceEca.retrieveCredentials",
+          "when": "view == salesforceEca.ecas && viewItem == eca.supported",
+          "group": "1_credentials@2"
+        },
+        {
+          "command": "salesforceEca.validateCredentials",
+          "when": "view == salesforceEca.ecas && viewItem == eca.supported",
+          "group": "1_credentials@3"
+        },
+        {
+          "command": "salesforceEca.deleteStagedCredential",
+          "when": "view == salesforceEca.ecas && viewItem == eca.supported",
+          "group": "1_credentials@4"
+        },
+        {
+          "command": "salesforceEca.showEcaDetails",
+          "when": "view == salesforceEca.ecas && viewItem =~ /^eca\\./",
+          "group": "2_details@1"
+        },
+        {
+          "command": "salesforceEca.openSetup",
+          "when": "view == salesforceEca.ecas && viewItem =~ /^eca\\./",
+          "group": "2_details@2"
+        },
+        {
+          "command": "salesforceEca.openAuditRecord",
+          "when": "view == salesforceEca.audit && viewItem == audit.record",
+          "group": "inline@1"
+        }
+      ],
+      "commandPalette": [
+        {
+          "command": "salesforceEca.copyClientId",
+          "when": "salesforceEca.hasCredentialSession"
+        },
+        {
+          "command": "salesforceEca.copyClientSecret",
+          "when": "salesforceEca.hasCredentialSession"
+        },
+        {
+          "command": "salesforceEca.clearCredentials",
+          "when": "salesforceEca.hasCredentialSession"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "Salesforce ECA Credential Rotation Manager",
+      "properties": {
+        "salesforceEca.sfCliPath": {
+          "type": "string",
+          "default": "sf",
+          "description": "Path to the Salesforce CLI executable. The extension uses execFile (never a shell), so paths containing spaces are supported."
+        },
+        "salesforceEca.apiVersion": {
+          "type": "string",
+          "default": "",
+          "pattern": "^(|v?\\d{2,3}\\.0)$",
+          "markdownDescription": "Salesforce REST API version, for example `v66.0`. Leave empty to auto-detect the highest version supported by the selected org. Credential rotation requires API v65.0 or later."
+        },
+        "salesforceEca.cliTimeoutMs": {
+          "type": "number",
+          "default": 60000,
+          "minimum": 5000,
+          "maximum": 300000,
+          "description": "Timeout in milliseconds for each Salesforce CLI invocation."
+        },
+        "salesforceEca.requestTimeoutMs": {
+          "type": "number",
+          "default": 30000,
+          "minimum": 5000,
+          "maximum": 120000,
+          "description": "Timeout in milliseconds for each Salesforce REST API request."
+        },
+        "salesforceEca.credentialSessionTtlMinutes": {
+          "type": "number",
+          "default": 10,
+          "minimum": 1,
+          "maximum": 60,
+          "description": "How long retrieved credentials are kept in extension memory before being automatically cleared. Credentials are never written to disk."
+        },
+        "salesforceEca.auditDirectory": {
+          "type": "string",
+          "default": "",
+          "description": "Directory for the rotation audit JSONL file. Leave empty to use the extension's global storage. Relative paths are resolved against the first workspace folder."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "lint": "eslint src --max-warnings 0",
+    "test": "npm run compile && mocha --config .mocharc.json",
+    "check": "npm run lint && npm test",
+    "package": "vsce package --no-dependencies --allow-missing-repository",
+    "clean": "rm -rf out *.vsix"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.17.0",
+    "@types/mocha": "^10.0.10",
+    "@types/node": "^22.10.2",
+    "@types/vscode": "^1.95.0",
+    "@vscode/vsce": "^3.2.1",
+    "eslint": "^9.17.0",
+    "mocha": "^11.1.0",
+    "typescript": "^5.7.2",
+    "typescript-eslint": "^8.18.2"
+  }
+}
