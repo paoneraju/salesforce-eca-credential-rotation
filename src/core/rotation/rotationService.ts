@@ -4,7 +4,6 @@ import { redact } from "../redact";
 import type {
   Eca,
   EcaAuditSnapshot,
-  IntegrationValidationResult,
   OrgAuditSnapshot,
   OrgSession,
   PreflightCheck,
@@ -16,8 +15,6 @@ import type {
 import type { AuditRecordInput, AuditService, AuditWriteResult } from "../audit/auditService";
 import type { CredentialScope, CredentialSession } from "../credentials/credentialSession";
 import { EcaApi, validateConsumerIdentifier, validateEcaIdentifier } from "../api/ecaApi";
-import type { HttpTransport } from "../api/http";
-import { validateClientCredentials } from "../validation/integrationValidator";
 
 export interface SessionProvider {
   assertSession(org: SalesforceOrg): Promise<OrgSession>;
@@ -30,10 +27,8 @@ export interface RotationServiceOptions {
   apiFactory: EcaApiProvider;
   audit: AuditService;
   credentials: CredentialSession;
-  transport: HttpTransport;
   logger?: Logger;
   now?: () => Date;
-  requestTimeoutMs?: number;
 }
 
 export class RotationFailedError extends AppError {
@@ -111,20 +106,16 @@ export class RotationService {
   private readonly apiFactory: EcaApiProvider;
   private readonly audit: AuditService;
   private readonly credentials: CredentialSession;
-  private readonly transport: HttpTransport;
   private readonly logger: Logger;
   private readonly now: () => Date;
-  private readonly requestTimeoutMs: number;
 
   constructor(options: RotationServiceOptions) {
     this.sessions = options.sessions;
     this.apiFactory = options.apiFactory;
     this.audit = options.audit;
     this.credentials = options.credentials;
-    this.transport = options.transport;
     this.logger = options.logger ?? new NoopLogger();
     this.now = options.now ?? (() => new Date());
-    this.requestTimeoutMs = options.requestTimeoutMs ?? 30000;
   }
 
   async preflight(org: SalesforceOrg, eca: Eca): Promise<PreflightResult> {
@@ -519,56 +510,6 @@ export class RotationService {
       apiVersion,
       authenticationTested: false
     };
-  }
-
-  async validateIntegration(
-    org: SalesforceOrg,
-    eca: Eca,
-    stagedCredentialId: string,
-    options: { confirmed: boolean }
-  ): Promise<IntegrationValidationResult> {
-    if (!options.confirmed) {
-      throw new AppError({
-        code: "CANCELLED",
-        userMessage: "Integration validation was cancelled."
-      });
-    }
-    const consumer = requireConsumer(eca);
-    const session = await this.sessions.assertSession(org);
-    const api = this.apiFactory(session);
-    await api.validateConsumer(eca.identifier, consumer.id);
-
-    const scope = scopeFor(org, eca);
-    let held = this.credentials.get(scope);
-    if (!held || held.stagedCredentialId !== stagedCredentialId) {
-      held = await api.retrieveStagedCredential(eca.identifier, consumer.id, stagedCredentialId);
-      this.credentials.set(scope, held);
-    }
-
-    const result = await validateClientCredentials({
-      instanceUrl: org.instanceUrl,
-      clientId: held.clientId,
-      clientSecret: held.clientSecret,
-      transport: this.transport,
-      timeoutMs: this.requestTimeoutMs,
-      logger: this.logger,
-      now: this.now
-    });
-
-    await this.audit.record(
-      this.baseAudit(org, eca, "integration-validation", result.ok ? "success" : "failed", session, await api.getApiVersion(), {
-        integrationValidation: {
-          attempted: true,
-          ok: result.ok,
-          errorCode: result.ok ? undefined : result.errorCode
-        },
-        note: result.ok
-          ? "OAuth Client Credentials grant succeeded; the issued access token was discarded."
-          : "OAuth Client Credentials validation did not succeed. Credential rotation state is unaffected."
-      })
-    );
-
-    return result;
   }
 
   async deleteStagedCredential(

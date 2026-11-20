@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.0.1
+
+- Removed the optional OAuth Client Credentials validation command and its result-screen action.
+- Removed the `integration-validation` audit action and `integrationValidation` audit field.
+- Rotation verification remains a state check: the staged credential must report `rotated` and the active consumer key must match the retrieved client ID.
+- Removed the post-rotation validation guidance from the README and SECURITY documents.
+
 ## 1.0.0
 
 - Initial release.

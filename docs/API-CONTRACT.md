@@ -137,25 +137,6 @@ Deletes a staged credential. The active consumer credentials are not changed. Th
 
 Returns the active consumer, including `key`. Used only to compare the active client ID with the newly retrieved client ID during verification.
 
-## OAuth integration validation (optional)
-
-For ECAs configured with the Client Credentials flow and a Run-As user:
-
-```
-POST {instanceUrl}/services/oauth2/token
-Content-Type: application/x-www-form-urlencoded
-
-grant_type=client_credentials&client_id=...&client_secret=...
-```
-
-Handling:
-
-- Only runs after an explicit administrator confirmation.
-- A success response must contain `access_token`; the token is discarded immediately and is never returned, logged, displayed, or audited.
-- `invalid_client` suggests wrong credentials or a disabled flow.
-- `invalid_grant` with `no client credentials user enabled` suggests a missing Run-As user.
-- Timeouts and network errors are reported as inconclusive, not as credential failures.
-
 ## HTTP and error mapping
 
 | Status | Extension behavior |

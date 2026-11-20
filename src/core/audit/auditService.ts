@@ -87,15 +87,6 @@ function buildRecord(
       checkedAt: input.verification.checkedAt
     };
   }
-  if (input.integrationValidation) {
-    record.integrationValidation = {
-      attempted: input.integrationValidation.attempted,
-      ok: input.integrationValidation.ok,
-      errorCode: input.integrationValidation.errorCode
-        ? redact(input.integrationValidation.errorCode)
-        : undefined
-    };
-  }
   if (input.error) {
     record.error = {
       code: input.error.code,

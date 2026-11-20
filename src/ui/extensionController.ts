@@ -7,7 +7,7 @@ import { NodeHttpsTransport } from "../core/api/nodeHttpsTransport";
 import { SalesforceClient } from "../core/api/salesforceClient";
 import { AuditService, type AuditEntry } from "../core/audit/auditService";
 import { SfCli } from "../core/cli/sfCli";
-import { CredentialSession, type CredentialScope } from "../core/credentials/credentialSession";
+import { CredentialSession } from "../core/credentials/credentialSession";
 import { isAuthError, toAppError } from "../core/errors";
 import { OrgService } from "../core/orgs/orgService";
 import { RotationService } from "../core/rotation/rotationService";
@@ -151,9 +151,7 @@ export class ExtensionController {
       apiFactory: (session) => this.createApi(session, settings),
       audit,
       credentials: this.credentials,
-      transport: this.transport,
-      logger: this.logger,
-      requestTimeoutMs: settings.requestTimeoutMs
+      logger: this.logger
     });
 
     this.services = { cli, orgs, audit, rotation };
@@ -205,7 +203,6 @@ export class ExtensionController {
     register("salesforceEca.copyClientId", () => this.copyHeldCredential("clientId"));
     register("salesforceEca.copyClientSecret", () => this.copyHeldCredential("clientSecret"));
     register("salesforceEca.clearCredentials", () => this.clearCredentialsCommand());
-    register("salesforceEca.validateCredentials", () => this.validateCredentialsCommand());
     register("salesforceEca.deleteStagedCredential", (argument?: unknown) =>
       this.deleteStagedCommand(argument)
     );
@@ -637,101 +634,6 @@ export class ExtensionController {
     void vscode.window.showInformationMessage(
       "Credentials were cleared from extension memory. Clipboard contents are unchanged."
     );
-  }
-
-  private async validateCredentialsCommand(): Promise<void> {
-    const held = this.getHeldCredential();
-    if (!held) {
-      const choice = await vscode.window.showWarningMessage(
-        "No new credentials are held in memory. Retrieve the staged credentials before validating them.",
-        "Retrieve Credentials"
-      );
-      if (choice === "Retrieve Credentials") {
-        await this.retrieveCommand();
-      }
-      return;
-    }
-
-    const org = this.requireSelectedOrg();
-    if (!org) {
-      return;
-    }
-    const scope = this.credentials.scope;
-    if (!scope || !this.scopeMatchesOrg(scope, org)) {
-      const choice = await vscode.window.showWarningMessage(
-        "The credentials held in memory belong to a different Salesforce org. Clear them and retrieve the intended credentials.",
-        "Clear Credentials"
-      );
-      if (choice === "Clear Credentials") {
-        this.clearCredentialsCommand();
-      }
-      return;
-    }
-
-    let eca = this.state.ecas.find(
-      (candidate) =>
-        candidate.identifier === scope.appIdentifier && candidate.consumer?.id === scope.consumerId
-    );
-    if (!eca) {
-      await this.refreshEcas({ silent: true });
-      eca = this.state.ecas.find(
-        (candidate) =>
-          candidate.identifier === scope.appIdentifier && candidate.consumer?.id === scope.consumerId
-      );
-    }
-    if (!eca) {
-      void vscode.window.showWarningMessage(
-        "The External Client App for the held credentials is not available. Refresh External Client Apps and try again."
-      );
-      return;
-    }
-
-    const confirmed = await vscode.window.showWarningMessage(
-      "Run optional OAuth Client Credentials validation?",
-      {
-        modal: true,
-        detail: [
-          `Org: ${org.alias ?? org.username} (${org.environment})`,
-          `External Client App: ${eca.developerName}`,
-          "",
-          "This sends a Client Credentials OAuth token request with the new client ID and secret.",
-          "Only proceed if Client Credentials Flow is enabled and a Run-As user is assigned.",
-          "The issued access token is discarded and is never displayed or logged."
-        ].join("\n")
-      },
-      "Run Validation"
-    );
-    if (confirmed !== "Run Validation") {
-      return;
-    }
-
-    try {
-      const result = await this.services.rotation.validateIntegration(
-        org,
-        eca,
-        held.stagedCredentialId,
-        { confirmed: true }
-      );
-      await this.refreshAudit({ silent: true });
-      if (result.ok) {
-        void vscode.window.showInformationMessage(
-          `OAuth Client Credentials validation succeeded. ${result.detail} The access token was discarded.`
-        );
-      } else {
-        void vscode.window.showWarningMessage(
-          `OAuth Client Credentials validation did not succeed. ${result.detail}`
-        );
-      }
-    } catch (error) {
-      await this.showError(error, "The optional integration validation did not complete.");
-    }
-  }
-
-  private scopeMatchesOrg(scope: CredentialScope, org: SalesforceOrg): boolean {
-    if (scope.orgId && org.orgId) {
-      return scope.orgId === org.orgId;
-    }
-    return scope.orgUsername.toLowerCase() === org.username.toLowerCase();
   }
 
   private async deleteStagedCommand(argument?: unknown): Promise<void> {

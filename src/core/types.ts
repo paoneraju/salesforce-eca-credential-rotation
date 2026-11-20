@@ -168,21 +168,6 @@ export interface RotationOutcome {
   authenticationTested: boolean;
 }
 
-export type IntegrationValidationResult =
-  | {
-      ok: true;
-      checkedAt: string;
-      status: number;
-      detail: string;
-    }
-  | {
-      ok: false;
-      checkedAt: string;
-      status: number;
-      errorCode?: string;
-      detail: string;
-    };
-
 export interface OrgAuditSnapshot {
   alias?: string;
   username: string;
@@ -204,7 +189,6 @@ export type AuditAction =
   | "stage"
   | "retrieve"
   | "rotate"
-  | "integration-validation"
   | "delete-staged";
 
 export type AuditOutcome = "success" | "verified" | "unverified" | "failed" | "blocked";
@@ -229,11 +213,6 @@ export interface AuditRecord {
     stagedState: StagedCredentialState;
     activeConsumerKeyMatches: boolean;
     checkedAt: string;
-  };
-  integrationValidation?: {
-    attempted: boolean;
-    ok?: boolean;
-    errorCode?: string;
   };
   error?: {
     code: string;

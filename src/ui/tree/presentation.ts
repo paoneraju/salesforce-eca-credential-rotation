@@ -114,11 +114,6 @@ export function auditTooltip(entry: AuditEntry): vscode.MarkdownString {
       `Verification: state=${record.verification.stagedState}, active key matches=${record.verification.activeConsumerKeyMatches}\n`
     );
   }
-  if (record.integrationValidation) {
-    tooltip.appendText(
-      `Integration validation: attempted=${record.integrationValidation.attempted}, ok=${String(record.integrationValidation.ok ?? "n/a")}\n`
-    );
-  }
   if (record.error) {
     tooltip.appendText(`Error: ${record.error.code} — ${record.error.message}\n`);
   }

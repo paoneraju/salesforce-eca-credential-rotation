@@ -726,21 +726,6 @@
       )
     );
 
-    if (state.validation) {
-      const validation = state.validation;
-      content.appendChild(
-        h(
-          "div",
-          { class: "callout " + (validation.ok ? "ok" : "danger") },
-          h("strong", {
-            text: validation.ok ? "OAuth validation succeeded. " : "OAuth validation did not succeed. "
-          }),
-          validation.detail,
-          h("div", { class: "muted small", text: "Checked " + formatTime(validation.checkedAt) })
-        )
-      );
-    }
-
     const actions = h("div", { class: "actions" });
     actions.appendChild(button("Open audit record", () => post("openAudit"), { secondary: true }));
     if (state.result && state.result.staged && state.result.staged.id) {

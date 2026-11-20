@@ -35,7 +35,7 @@ The extension reuses your existing Salesforce CLI authentication, discovers orgs
 ### From a packaged VSIX
 
 ```bash
-code --install-extension salesforce-eca-credential-rotation-1.0.0.vsix
+code --install-extension salesforce-eca-credential-rotation-1.0.1.vsix
 ```
 
 Then reload VS Code. The **Salesforce ECA Manager** view appears in the Activity Bar.

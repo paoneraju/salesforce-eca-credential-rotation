@@ -3,7 +3,6 @@ import { promises as fs } from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import type { EcaApi } from "../core/api/ecaApi";
-import type { HttpTransport } from "../core/api/http";
 import { AuditService } from "../core/audit/auditService";
 import { CredentialSession } from "../core/credentials/credentialSession";
 import { ApiError, AppError } from "../core/errors";
@@ -21,14 +20,12 @@ import {
   type StagedCredentialInfo,
   type StagedCredentialState
 } from "../core/types";
-import { FakeTransport, jsonResponse } from "./helpers";
 
 const APP = "0xI000000000000001";
 const CONSUMER = "C000000000000001";
 const STAGED = "S000000000000001";
 const NEW_CLIENT_ID = "NEW_CLIENT_ID_SENTINEL";
 const NEW_SECRET = "NEW_CLIENT_SECRET_SENTINEL";
-const TOKEN_SENTINEL = "00D000000000001!AQ_TOKEN_SENTINEL";
 
 const tempDirectories: string[] = [];
 
@@ -139,18 +136,13 @@ async function createHarness(options: HarnessOptions = {}): Promise<Harness> {
     idFactory: () => `audit-${++auditSequence}`
   });
   const credentials = new CredentialSession({ ttlMs: 10 * 60_000 });
-  const transport: HttpTransport = new FakeTransport(() =>
-    jsonResponse(200, { access_token: TOKEN_SENTINEL })
-  );
 
   const rotation = new RotationService({
     sessions,
     apiFactory: () => api as unknown as EcaApi,
     audit,
     credentials,
-    transport,
-    logger: new NoopLogger(),
-    requestTimeoutMs: 1000
+    logger: new NoopLogger()
   });
 
   return {
@@ -346,22 +338,6 @@ describe("RotationService", () => {
     const audit = await harness.readAudit();
     assert.equal(audit.includes(NEW_SECRET), false);
     assert.equal(audit.includes(NEW_CLIENT_ID), false);
-  });
-
-  it("validates the integration and records that the token was discarded", async () => {
-    const harness = await createHarness();
-    await harness.rotation.retrieve(harness.org, harness.eca, STAGED, { explicit: true });
-
-    const result = await harness.rotation.validateIntegration(harness.org, harness.eca, STAGED, {
-      confirmed: true
-    });
-    assert.equal(result.ok, true);
-
-    const audit = await harness.readAudit();
-    assert.match(audit, /"action":"integration-validation"/);
-    assert.match(audit, /token was discarded/);
-    assert.equal(audit.includes(TOKEN_SENTINEL), false);
-    assert.equal(audit.includes(NEW_SECRET), false);
   });
 
   it("deletes a staged credential only after confirmation and clears held credentials", async () => {

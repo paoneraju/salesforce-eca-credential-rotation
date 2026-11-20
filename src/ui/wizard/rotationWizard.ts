@@ -6,7 +6,6 @@ import type { CredentialSession } from "../../core/credentials/credentialSession
 import { RotationFailedError, type RotationService } from "../../core/rotation/rotationService";
 import type {
   Eca,
-  IntegrationValidationResult,
   PreflightCheck,
   SalesforceOrg,
   StagedCredentialInfo,
@@ -74,7 +73,6 @@ export class RotationWizard {
   private checklistAcknowledged = false;
   private revealed = false;
   private result?: WizardResultView;
-  private validation?: IntegrationValidationResult;
   private error?: { message: string; auditId?: string; auditPath?: string };
   private notice?: string;
   private revealTimer?: NodeJS.Timeout;
@@ -254,9 +252,6 @@ export class RotationWizard {
           typeof data.typedEcaName === "string" ? data.typedEcaName : "",
           data.checklistAcknowledged === true
         );
-        break;
-      case "validate":
-        await this.validate();
         break;
       case "deleteStaged":
         await this.deleteStaged();
@@ -511,62 +506,14 @@ export class RotationWizard {
         authenticationTested: outcome.authenticationTested
       };
       this.step = "result";
-      this.validation = undefined;
       this.revealed = false;
       this.error = undefined;
       this.notice =
         outcome.status === "verified"
-          ? "Rotation verified. Update integrations with the new client ID and secret, then validate them separately."
+          ? "Rotation verified. Update integrations with the new client ID and secret."
           : "Rotation was accepted but could not be verified. Do not assume the new credentials are active.";
       await this.notifyChanged();
     });
-  }
-
-  private async validate(): Promise<void> {
-    if (this.busy) {
-      return;
-    }
-    const stagedId = this.staged?.id;
-    if (!stagedId) {
-      this.error = { message: "No staged credential is available for validation." };
-      this.postState();
-      return;
-    }
-    const confirmed = await this.confirmWarning(
-      "Run optional OAuth Client Credentials validation?",
-      [
-        `Org: ${this.orgLabel()}`,
-        `External Client App: ${this.dependencies.eca.developerName}`,
-        "",
-        "This sends a Client Credentials OAuth token request using the new client ID and secret.",
-        "Only proceed if Client Credentials Flow is enabled for this app and a Run-As user is assigned. This is not a general connectivity test.",
-        "The issued access token is discarded and never displayed or logged."
-      ].join("\n"),
-      "Run Validation"
-    );
-    if (!confirmed) {
-      return;
-    }
-
-    this.busy = true;
-    this.error = undefined;
-    this.postState();
-    try {
-      this.validation = await this.dependencies.rotation.validateIntegration(
-        this.dependencies.org,
-        this.dependencies.eca,
-        stagedId,
-        { confirmed: true }
-      );
-      await this.notifyChanged();
-    } catch (error) {
-      this.busy = false;
-      this.fail(error, "result");
-      return;
-    } finally {
-      this.busy = false;
-    }
-    this.postState();
   }
 
   private async deleteStaged(): Promise<void> {
@@ -607,7 +554,6 @@ export class RotationWizard {
       this.revealed = false;
       this.checklistAcknowledged = false;
       this.result = undefined;
-      this.validation = undefined;
       this.notice = wasRotated
         ? "Rotated staged credential deleted. The active client ID and secret were not changed."
         : "Staged credential deleted.";
@@ -624,7 +570,6 @@ export class RotationWizard {
       this.checklistAcknowledged = false;
       this.revealed = false;
       this.result = undefined;
-      this.validation = undefined;
       this.error = undefined;
       this.notice = undefined;
       await this.loadPreflight();
@@ -784,7 +729,6 @@ export class RotationWizard {
           : undefined,
       checklistAcknowledged: this.checklistAcknowledged,
       result: this.result,
-      validation: this.validation,
       error: this.error,
       notice: this.notice
     };

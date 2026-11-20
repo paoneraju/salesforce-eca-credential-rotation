@@ -1,5 +1,4 @@
 import type {
-  IntegrationValidationResult,
   PreflightCheck,
   RotationOutcome,
   SalesforceOrg,
@@ -83,7 +82,6 @@ export interface WizardViewModel {
   credentials?: WizardCredentialsView;
   checklistAcknowledged: boolean;
   result?: WizardResultView;
-  validation?: IntegrationValidationResult;
   error?: WizardErrorView;
   notice?: string;
 }
