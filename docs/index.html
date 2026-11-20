@@ -1,0 +1,513 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Salesforce ECA Credential Rotation Manager — VS Code extension</title>
+<meta name="description" content="Rotate Salesforce External Client App OAuth credentials from VS Code using your existing Salesforce CLI session. Stage, retrieve, update consumers, approve, and verify — without storing secrets.">
+<meta name="theme-color" content="#0b0f14" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#f5f8fc" media="(prefers-color-scheme: light)">
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Salesforce ECA Credential Rotation Manager">
+<meta property="og:description" content="A guided, secret-free workflow for rotating Salesforce External Client App OAuth credentials from VS Code.">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+
+<header class="site-header">
+  <div class="wrap">
+    <a class="brand" href="#top">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M12 2.5 4.5 5.5v6c0 4.6 3.1 8.4 7.5 10 4.4-1.6 7.5-5.4 7.5-10v-6L12 2.5Z"/>
+        <circle cx="12" cy="10.2" r="2.3"/>
+        <path d="M12 12.5v4.2M10.4 15.1h3.2"/>
+      </svg>
+      ECA Credential Rotation
+    </a>
+    <nav class="site-nav" aria-label="Sections">
+      <a href="#before">Before you begin</a>
+      <a href="#install">Install</a>
+      <a href="#walkthrough">Walkthrough</a>
+      <a href="#troubleshooting">Troubleshooting</a>
+      <a href="https://github.com/paoneraju/salesforce-eca-credential-rotation">GitHub</a>
+    </nav>
+  </div>
+</header>
+
+<main id="main">
+  <section class="hero" id="top">
+    <div class="wrap">
+      <p class="eyebrow">Visual Studio Code extension</p>
+      <h1>Rotate Salesforce ECA credentials without moving secrets</h1>
+      <p class="lede">
+        Salesforce ECA Credential Rotation Manager reuses your authenticated Salesforce CLI session to discover
+        External Client Apps, stage and retrieve new OAuth credentials, and walk you through an
+        administrator-approved rotation with verification.
+      </p>
+      <div class="cta-row">
+        <a class="btn primary" href="https://github.com/paoneraju/salesforce-eca-credential-rotation/releases/latest">Download the VSIX</a>
+        <a class="btn" href="https://github.com/paoneraju/salesforce-eca-credential-rotation">View source</a>
+        <a class="btn" href="https://github.com/paoneraju/salesforce-eca-credential-rotation/blob/main/docs/API-CONTRACT.md">API contract</a>
+      </div>
+      <ul class="badges">
+        <li>MIT licensed</li>
+        <li>VS Code 1.95+</li>
+        <li>Salesforce API v65+</li>
+        <li>No secrets at rest</li>
+        <li>Not on the Marketplace — install the VSIX from Releases</li>
+      </ul>
+    </div>
+  </section>
+
+  <section class="band alt" id="why">
+    <div class="wrap">
+      <h2>Why this exists</h2>
+      <p class="section-lede">
+        Rotating an External Client App client secret is a handful of API calls surrounded by a lot of
+        operational risk. The values usually end up pasted into a note, a chat thread, or a shell history.
+      </p>
+      <div class="grid two">
+        <div class="card">
+          <h3>What the extension does</h3>
+          <ul>
+            <li>Reads orgs from <code>sf org list</code> and discovers local ECAs through Connect REST.</li>
+            <li>Runs preflight checks before anything is created.</li>
+            <li>Stages a second active credential without touching the current one.</li>
+            <li>Shows the new client ID and secret only after an explicit action, masked until you reveal them.</li>
+            <li>Requires a typed app name plus a native confirmation before rotating.</li>
+            <li>Verifies the result and appends a secret-free audit record.</li>
+          </ul>
+        </div>
+        <div class="card">
+          <h3>What it never does</h3>
+          <ul>
+            <li>Store access tokens, refresh tokens, or client secrets in settings, state, logs, or audit files.</li>
+            <li>Rotate automatically or on a schedule.</li>
+            <li>Switch orgs silently when an alias resolves elsewhere.</li>
+            <li>Restore the previous client secret after rotation.</li>
+            <li>Touch packaged ECAs, which are read-only here.</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="band" id="before">
+    <div class="wrap">
+      <h2>Before you begin</h2>
+      <p class="section-lede">
+        Rotation replaces the client ID and secret that integrations are using right now. Prepare every consumer
+        first, and rehearse in a sandbox if you can.
+      </p>
+
+      <div class="callout danger">
+        <span class="label">Rotating invalidates the current credentials immediately.</span>
+        <p>
+          Any integration still holding the old client ID and secret stops authenticating as soon as the rotation
+          succeeds. The extension cannot undo it. The staging step exists so you can update consumers before the
+          switch, and the checklist step exists so you do not skip that work.
+        </p>
+      </div>
+
+      <div class="grid two">
+        <div class="card">
+          <h3>Requirements</h3>
+          <ul>
+            <li>VS Code 1.95 or later.</li>
+            <li>Salesforce CLI (<code>sf</code>) installed and authenticated to the target org.</li>
+            <li>Salesforce API <strong>v65.0 or later</strong> in that org.</li>
+            <li>Permission to view and administer External Client Apps.</li>
+            <li>The ECA must be local to the org, not packaged.</li>
+          </ul>
+        </div>
+        <div class="card">
+          <h3>Enable secret retrieval</h3>
+          <p>To read the staged client secret through the REST API, enable this in the target org:</p>
+          <p><strong>Setup → External Client Apps → Settings → Allow access to External Client App consumer secrets via REST API</strong></p>
+          <p>
+            Without it, Salesforce may stage and rotate successfully but omit the secret from responses. The
+            extension reports that explicitly instead of treating a missing secret as success.
+          </p>
+        </div>
+      </div>
+
+      <p class="section-lede" style="margin-top:22px">
+        The screenshots on this page were captured from a Developer Edition org running the published
+        <strong>1.0.1</strong> build. The client ID in step 3 is redacted and the client secret is never revealed
+        in the UI during capture.
+      </p>
+    </div>
+  </section>
+
+  <section class="band alt" id="install">
+    <div class="wrap">
+      <h2>Install</h2>
+      <p class="section-lede">
+        The extension is distributed as a VSIX on GitHub Releases. It is not published to the VS Code Marketplace.
+      </p>
+      <div class="grid two">
+        <div class="card">
+          <h3>From a packaged VSIX</h3>
+          <p>Download the latest <code>.vsix</code> from Releases, then:</p>
+<pre><code>code --install-extension salesforce-eca-credential-rotation-1.0.1.vsix</code></pre>
+          <p>Reload VS Code. The <strong>Salesforce ECA Manager</strong> view appears in the Activity Bar.</p>
+        </div>
+        <div class="card">
+          <h3>From source</h3>
+<pre><code>npm install
+npm run compile
+npm test
+npm run package</code></pre>
+          <p>
+            <code>npm run package</code> writes the VSIX to the project root. For an Extension Development Host,
+            open the folder and press <strong>F5</strong>.
+          </p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="band" id="walkthrough">
+    <div class="wrap">
+      <h2>Rotate credentials, step by step</h2>
+      <p class="section-lede">
+        Open the Command Palette and run <strong>Salesforce ECA: Rotate Credentials…</strong>, or right-click an
+        app in the <strong>Salesforce ECA Manager</strong> view and choose <strong>Rotate Credentials…</strong>.
+        Select the org and the External Client App when prompted. Click any screenshot to open it at
+        full resolution.
+      </p>
+
+      <nav class="step-nav" aria-label="Walkthrough steps">
+        <a href="#step-1">1 · Checks</a>
+        <a href="#step-2">2 · Stage</a>
+        <a href="#step-3">3 · Retrieve</a>
+        <a href="#step-4">4 · Update</a>
+        <a href="#step-5">5 · Approve</a>
+        <a href="#step-6">6 · Verify</a>
+      </nav>
+
+      <article class="step" id="step-1">
+        <div class="step-head">
+          <span class="step-num">1</span>
+          <div>
+            <h3>Checks</h3>
+            <p class="step-sub">Confirm the target before anything is created.</p>
+          </div>
+        </div>
+        <div class="step-body">
+          <p>
+            The wizard opens on a read-only summary of the org and app, followed by preflight checks. Nothing has
+            been staged or changed at this point.
+          </p>
+          <ul class="look">
+            <li><strong>Target</strong> — org alias, username, environment, instance URL, ECA display name, API name, identifier, and consumer ID.</li>
+            <li><strong>Passing checks</strong> — local app, CLI session and org identity, API version v65+, OAuth consumer access.</li>
+            <li><strong>CLI session check</strong> — blocks rotation when the CLI session is authenticated with the same client you are about to rotate.</li>
+            <li><strong>Staged credential check</strong> — lists any credential already staged for this consumer.</li>
+            <li><strong>Warning</strong> — reminds you that secret retrieval needs the REST setting enabled in Setup.</li>
+          </ul>
+          <p>
+            <strong>Stage new credentials</strong> stays disabled until every blocking check passes. Warnings are
+            informational and do not block staging.
+          </p>
+        </div>
+        <figure class="figure">
+          <a href="assets/step-1-checks.png" target="_blank" rel="noopener">
+            <img src="assets/step-1-checks.png" width="2160" height="1782" alt="Rotation wizard step 1, Checks: target summary for org agentforce and External Client App Universal Org Inspector, six passing checks, one warning about staged secret retrieval, and the Stage new credentials button." decoding="async">
+          </a>
+          <figcaption>Step 1 — preflight checks for a Developer Edition org. API v68.0 was detected automatically.</figcaption>
+        </figure>
+      </article>
+
+      <article class="step" id="step-2">
+        <div class="step-head">
+          <span class="step-num">2</span>
+          <div>
+            <h3>Stage</h3>
+            <p class="step-sub">Create a second active credential without breaking the current one.</p>
+          </div>
+        </div>
+        <div class="step-body">
+          <p>
+            Choose <strong>Stage new credentials</strong> and confirm the native warning. Staging creates an
+            additional credential alongside the one in use; it does not revoke or replace anything yet.
+          </p>
+          <ul class="look">
+            <li><strong>State</strong> should read <code>active</code>.</li>
+            <li><strong>Staged credential ID</strong> identifies the record you will retrieve and later rotate.</li>
+            <li><strong>Expires</strong> is roughly 30 days after creation — retrieve before it lapses.</li>
+            <li><strong>Both credential sets can authenticate</strong> until the rotation call succeeds.</li>
+          </ul>
+          <p>
+            If an active staged credential already exists, staging again replaces it. Use
+            <strong>Retrieve existing staged credential</strong> from the Checks step instead when one is already
+            waiting.
+          </p>
+        </div>
+        <figure class="figure">
+          <a href="assets/step-2-stage.png" target="_blank" rel="noopener">
+            <img src="assets/step-2-stage.png" width="2160" height="1248" alt="Rotation wizard step 2, Stage: a banner confirms new credentials are staged and active, with a staged credential card showing state active, credential ID, created and expiry timestamps, and buttons to retrieve, restage, delete, or re-run checks." loading="lazy" decoding="async">
+          </a>
+          <figcaption>Step 2 — the new credential is active but has not replaced the current one.</figcaption>
+        </figure>
+      </article>
+
+      <article class="step" id="step-3">
+        <div class="step-head">
+          <span class="step-num">3</span>
+          <div>
+            <h3>Retrieve</h3>
+            <p class="step-sub">Read the new values once, deliberately.</p>
+          </div>
+        </div>
+        <div class="step-body">
+          <p>
+            Choose <strong>Retrieve staged credentials</strong> and confirm. The client ID appears in the panel;
+            the client secret stays masked until you choose <strong>Reveal secret</strong>.
+          </p>
+          <ul class="look">
+            <li><strong>Client ID</strong> — copy it with <strong>Copy Client ID</strong> (redacted in the screenshot below).</li>
+            <li><strong>Client secret</strong> — reveal, copy, and store it in your secret manager. It re-masks after 60 seconds.</li>
+            <li><strong>Memory lifetime</strong> — credentials clear from extension memory when the panel closes or after the configured TTL (10 minutes by default).</li>
+            <li><strong>Clipboard warning</strong> — other applications on the machine may read the clipboard. Clear it when you are done.</li>
+          </ul>
+          <p>
+            Nothing is written to disk, logs, or the audit file. If you close the panel before updating your
+            consumers, retrieve again — the staged credential is still there until it expires or is rotated.
+          </p>
+        </div>
+        <figure class="figure">
+          <a href="assets/step-3-retrieve.png" target="_blank" rel="noopener">
+            <img src="assets/step-3-retrieve.png" width="2160" height="1563" alt="Rotation wizard step 3, Retrieve: new credentials panel with the client ID redacted, the client secret shown as dots, copy and reveal buttons, credential metadata with a ten minute memory lifetime, and a clipboard warning." loading="lazy" decoding="async">
+          </a>
+          <figcaption>Step 3 — the client ID is redacted here; the secret remains masked until explicitly revealed.</figcaption>
+        </figure>
+      </article>
+
+      <article class="step" id="step-4">
+        <div class="step-head">
+          <span class="step-num">4</span>
+          <div>
+            <h3>Update</h3>
+            <p class="step-sub">Do the work in your systems before the switch.</p>
+          </div>
+        </div>
+        <div class="step-body">
+          <p>
+            Choose <strong>Continue to integration checklist</strong>. Every item must be checked before the
+            approval step unlocks, because rotation invalidates the old secret the moment it succeeds.
+          </p>
+          <ul class="look">
+            <li>Named Credentials or External Credentials updated in every environment.</li>
+            <li>Secrets manager, vault, or CI/CD secret variables updated.</li>
+            <li>Middleware, ETL, and other connected systems updated.</li>
+            <li>Integration owners notified and a rollback plan confirmed.</li>
+            <li>Old credentials scheduled for retirement only after validation.</li>
+          </ul>
+          <p>
+            These are acknowledgements, not automated checks. The extension cannot see your other systems, so the
+            accuracy of this step is on you and your team.
+          </p>
+        </div>
+        <figure class="figure">
+          <a href="assets/step-4-update.png" target="_blank" rel="noopener">
+            <img src="assets/step-4-update.png" width="2160" height="1248" alt="Rotation wizard step 4, Update: the integration update checklist with all five items checked and the Continue to approval button enabled." loading="lazy" decoding="async">
+          </a>
+          <figcaption>Step 4 — all five items acknowledged; the approval step stays locked until they are.</figcaption>
+        </figure>
+      </article>
+
+      <article class="step" id="step-5">
+        <div class="step-head">
+          <span class="step-num">5</span>
+          <div>
+            <h3>Approve</h3>
+            <p class="step-sub">Two deliberate confirmations, then the switch.</p>
+          </div>
+        </div>
+        <div class="step-body">
+          <p>
+            Choose <strong>Continue to approval</strong>. The page repeats the exact target and the consequence,
+            then asks you to type the External Client App API name and acknowledge that the current client ID and
+            secret will stop working.
+          </p>
+          <p>
+            <strong>Rotate credentials now</strong> stays disabled until the typed name matches exactly and the
+            acknowledgement is checked. A native modal then repeats the org, app name, API name, and consumer ID
+            and asks for a final <strong>Rotate Now</strong>.
+          </p>
+          <div class="callout warn">
+            <span class="label">Irreversible from this extension.</span>
+            <p>
+              The old credentials are not restored by the extension. If the rotation request fails, the result
+              screen says so and links to the audit record — do not assume the new credentials are active.
+            </p>
+          </div>
+        </div>
+        <figure class="figure">
+          <a href="assets/step-5-approve.png" target="_blank" rel="noopener">
+            <img src="assets/step-5-approve.png" width="2160" height="1574" alt="Rotation wizard step 5, Approve: target summary, an irreversible-action warning, a checklist-acknowledged notice, the typed API name Universal_Org_Inspector, an acknowledgement checkbox, and an enabled red Rotate credentials now button." loading="lazy" decoding="async">
+          </a>
+          <figcaption>Step 5 — the typed API name and acknowledgement enable the red rotation button.</figcaption>
+        </figure>
+      </article>
+
+      <article class="step" id="step-6">
+        <div class="step-head">
+          <span class="step-num">6</span>
+          <div>
+            <h3>Verify</h3>
+            <p class="step-sub">Confirm the org state actually changed.</p>
+          </div>
+        </div>
+        <div class="step-body">
+          <p>
+            After the native confirmation, the extension rotates the staged credential and re-reads the consumer.
+            <strong>Verified</strong> requires both conditions: Salesforce reports the staged credential as
+            <code>rotated</code>, and the org's active consumer key matches the client ID you retrieved.
+          </p>
+          <ul class="look">
+            <li><strong>Status</strong> — <code>verified</code> or <code>unverified</code>.</li>
+            <li><strong>Rotated at</strong> and <strong>HTTP status</strong> for the mutation call.</li>
+            <li><strong>Staged state</strong> — should read <code>rotated</code>.</li>
+            <li><strong>Active client ID matches</strong> — <code>yes</code>, with the suffix of the new client ID.</li>
+            <li><strong>Audit ID</strong> — the record you can open from the result screen.</li>
+          </ul>
+          <div class="callout warn">
+            <span class="label">Not an authentication test.</span>
+            <p>
+              Verification compares Salesforce state; it does not log in with the new credentials. Test a real
+              integration call after rotation, then delete the rotated staged record if you no longer need it.
+            </p>
+          </div>
+        </div>
+        <figure class="figure">
+          <a href="assets/step-6-verify.png" target="_blank" rel="noopener">
+            <img src="assets/step-6-verify.png" width="2160" height="1272" alt="Rotation wizard step 6, Verify: a Verified outcome, a verification table with status verified, rotated timestamp, HTTP 200, staged state rotated, active client ID matches yes, and an audit ID, plus a callout that this is a state check rather than an authentication test." loading="lazy" decoding="async">
+          </a>
+          <figcaption>Step 6 — verified means the staged record rotated and the active consumer key matches.</figcaption>
+        </figure>
+      </article>
+    </div>
+  </section>
+
+  <section class="band alt" id="after">
+    <div class="wrap">
+      <h2>After rotation</h2>
+      <div class="grid two">
+        <div class="card">
+          <h3>Clean up the staged record</h3>
+          <p>
+            The result screen offers <strong>Delete staged credential</strong>, and the command
+            <strong>Salesforce ECA: Delete Staged Credential…</strong> does the same later. Deleting the record does
+            not change the active client ID or secret; it only removes the extra staged entry.
+          </p>
+        </div>
+        <div class="card">
+          <h3>Review the audit trail</h3>
+          <p>
+            Every operation appends a JSONL record to the local audit file. Records contain IDs, names,
+            timestamps, states, HTTP status codes, and outcomes — never client IDs, secrets, or tokens. Open the
+            file or a single record from the <strong>Rotation History</strong> view.
+          </p>
+        </div>
+      </div>
+      <div class="callout" style="margin-top:18px">
+        <span class="label">If you need to roll back</span>
+        <p>
+          This extension has no rollback. Salesforce keeps the rotated staged credential for a period and the
+          previous secret is not restored here. Recovery means creating a new credential, updating consumers
+          again, and rotating once more — which is why the checklist step matters.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <section class="band" id="troubleshooting">
+    <div class="wrap">
+      <h2>Troubleshooting</h2>
+      <p class="section-lede">The most common failures, and what they actually mean.</p>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Symptom</th><th>Fix</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>“Unable to refresh session” or an expired access/refresh token</td>
+              <td>Run <code>sf org login web --alias &lt;alias&gt;</code>, then <strong>Salesforce ECA: Refresh Salesforce Orgs</strong>. The extension never repairs the CLI session for you.</td>
+            </tr>
+            <tr>
+              <td>HTTP 403 while discovering or rotating</td>
+              <td>Confirm the user can view and administer External Client Apps, and can read consumer secrets.</td>
+            </tr>
+            <tr>
+              <td>“Salesforce did not return the staged client secret”</td>
+              <td>Enable <strong>Allow access to External Client App consumer secrets via REST API</strong> in Setup, or check that the staged credential has not expired.</td>
+            </tr>
+            <tr>
+              <td>API version unsupported</td>
+              <td>The org must advertise v65.0 or later. Leave <code>salesforceEca.apiVersion</code> empty to auto-detect, or pin a supported version.</td>
+            </tr>
+            <tr>
+              <td>The CLI session is the target client</td>
+              <td>Preflight blocks rotation when the session's OAuth client is the ECA you are rotating. Use a different org session.</td>
+            </tr>
+            <tr>
+              <td>A packaged app cannot be rotated</td>
+              <td>Packaged ECAs are managed by their package and are intentionally read-only here.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <section class="band alt" id="settings">
+    <div class="wrap">
+      <h2>Settings and security model</h2>
+      <div class="table-wrap" style="margin-bottom:24px">
+        <table>
+          <thead>
+            <tr><th>Setting</th><th>Default</th><th>Purpose</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>salesforceEca.sfCliPath</code></td><td><code>sf</code></td><td>Salesforce CLI executable. Commands use <code>execFile</code>, never a shell.</td></tr>
+            <tr><td><code>salesforceEca.apiVersion</code></td><td>empty</td><td>Pin an API version such as <code>v66.0</code>. Empty means auto-detect; v65.0+ required.</td></tr>
+            <tr><td><code>salesforceEca.cliTimeoutMs</code></td><td><code>60000</code></td><td>CLI command timeout.</td></tr>
+            <tr><td><code>salesforceEca.requestTimeoutMs</code></td><td><code>30000</code></td><td>REST request timeout.</td></tr>
+            <tr><td><code>salesforceEca.credentialSessionTtlMinutes</code></td><td><code>10</code></td><td>In-memory credential lifetime.</td></tr>
+            <tr><td><code>salesforceEca.auditDirectory</code></td><td>empty</td><td>Audit directory. Empty uses global extension storage; relative paths resolve against the first workspace folder.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <ul>
+        <li><strong>No secrets at rest.</strong> Credentials live only in the extension process; <code>CredentialSession.toJSON()</code> returns <code>null</code> and the session is never placed in workspace or global state.</li>
+        <li><strong>No shell construction.</strong> CLI calls use argument arrays, and org references are validated against control characters and leading dashes.</li>
+        <li><strong>Re-validated identity.</strong> Every mutation re-runs <code>sf org display</code>, checks username, org ID, and instance URL, and calls a lightweight authenticated endpoint first.</li>
+        <li><strong>Allowlisted parsing and audit fields.</strong> Tokens in CLI output are ignored; audit records contain no client IDs or secrets.</li>
+        <li><strong>Panels clear memory.</strong> Closing the wizard drops held credentials.</li>
+      </ul>
+      <p style="margin-top:16px">
+        Read the full threat model in
+        <a href="https://github.com/paoneraju/salesforce-eca-credential-rotation/blob/main/SECURITY.md">SECURITY.md</a>.
+      </p>
+    </div>
+  </section>
+</main>
+
+<footer class="site-footer">
+  <div class="wrap">
+    <p style="margin:0">MIT licensed. Built for Salesforce administrators who rotate credentials by hand today.</p>
+    <nav aria-label="Project links">
+      <a href="https://github.com/paoneraju/salesforce-eca-credential-rotation">GitHub</a>
+      <a href="https://github.com/paoneraju/salesforce-eca-credential-rotation/releases">Releases</a>
+      <a href="https://github.com/paoneraju/salesforce-eca-credential-rotation/blob/main/SECURITY.md">Security</a>
+      <a href="https://github.com/paoneraju/salesforce-eca-credential-rotation/blob/main/docs/API-CONTRACT.md">API contract</a>
+    </nav>
+  </div>
+</footer>
+</body>
+</html>

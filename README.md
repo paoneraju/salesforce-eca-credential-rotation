@@ -6,6 +6,10 @@ The extension reuses your existing Salesforce CLI authentication, discovers orgs
 
 > Credential rotation invalidates the client ID and secret currently in use. Update every integration **before** approving the final rotation. The extension never rotates automatically.
 
+> [!TIP]
+> A step-by-step walkthrough with screenshots of every wizard step is published at
+> **https://paoneraju.github.io/salesforce-eca-credential-rotation/**
+
 ## Features
 
 - **Reuse Salesforce CLI auth.** Orgs come from `sf org list --json`; each operation obtains a fresh session through `sf org display --target-org <alias> --verbose --json`, resolving the token with `sf org auth show-access-token` when the CLI redacts it, and re-validates the org identity before any mutation.
