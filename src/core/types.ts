@@ -1,5 +1,7 @@
 /** Shared domain types. Nothing in this file may contain a persisted secret. */
 
+import { randomUUID } from "node:crypto";
+
 export type OrgEnvironment = "Production" | "Sandbox" | "Scratch Org" | "Dev Hub" | "Unknown";
 
 export type OrgConnectionStatus = "connected" | "expired" | "unreachable" | "unknown";
@@ -44,7 +46,7 @@ export class OrgSession {
     this.org = options.org;
     this.apiVersion = options.apiVersion;
     this.clientId = options.clientId;
-    this.sessionId = options.sessionId ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    this.sessionId = options.sessionId ?? randomUUID();
     this.#accessToken = options.accessToken;
   }
 
