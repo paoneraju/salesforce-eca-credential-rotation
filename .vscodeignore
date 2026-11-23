@@ -3,6 +3,9 @@ src/**
 out/test/**
 node_modules/**
 docs/**
+explainer/**
+.explainer-work/**
+**/.DS_Store
 .eslintrc*
 eslint.config.mjs
 tsconfig.json

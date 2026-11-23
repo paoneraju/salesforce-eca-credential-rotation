@@ -2,7 +2,7 @@
   "name": "salesforce-eca-credential-rotation",
   "displayName": "Salesforce ECA Credential Rotation Manager",
   "description": "Discover Salesforce External Client Apps, stage and retrieve OAuth credentials, and perform administrator-approved credential rotation using your existing Salesforce CLI authentication.",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "publisher": "pavan",
   "license": "MIT",
   "repository": {

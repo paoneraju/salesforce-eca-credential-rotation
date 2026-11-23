@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.0.2
+
+- Replaced the `Math.random()` session identifier with `crypto.randomUUID()` to resolve the CodeQL insecure-randomness alert.
+- Refactored the wizard DOM renderer to use `Element.append()` with explicit string and node handling, clearing the CodeQL DOM-XSS alert.
+
 ## 1.0.1
 
 - Removed the optional OAuth Client Credentials validation command and its result-screen action.
