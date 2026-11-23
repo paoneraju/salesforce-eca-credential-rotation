@@ -104,11 +104,11 @@
       return;
     }
     if (typeof child === "string" || typeof child === "number") {
-      node.appendChild(document.createTextNode(String(child)));
+      node.append(String(child));
       return;
     }
     if (child instanceof Node) {
-      node.appendChild(child);
+      node.append(child);
     }
   }
 
