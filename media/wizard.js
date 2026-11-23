@@ -103,11 +103,13 @@
       child.forEach((entry) => append(node, entry));
       return;
     }
-    node.appendChild(
-      typeof child === "string" || typeof child === "number"
-        ? document.createTextNode(String(child))
-        : child
-    );
+    if (typeof child === "string" || typeof child === "number") {
+      node.appendChild(document.createTextNode(String(child)));
+      return;
+    }
+    if (child instanceof Node) {
+      node.appendChild(child);
+    }
   }
 
   function button(label, onClick, options) {
